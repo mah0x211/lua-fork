@@ -1,0 +1,192 @@
+local fork = require('fork')
+local assert = require('assert')
+local errno = require('errno')
+local signal = require('signal')
+local sleep = require('sleep')
+
+local function test_fork()
+    -- test that fork child process
+    local p, err = fork()
+    if not p then
+        if err then
+            error(err)
+        end
+        os.exit()
+    else
+        assert.match(p, '^fork.process: ', false)
+        assert.greater(p:pid(), 1)
+    end
+end
+
+local function test_wait()
+    local p, err = fork()
+    if not p then
+        if err then
+            error(err)
+        end
+        -- test that child process exit 123
+        os.exit(123)
+    end
+    local pid = p:pid()
+
+    -- test that child process exit with code 123
+    local res = assert(p:wait())
+    assert.equal(res, {
+        pid = pid,
+        exit = 123,
+    })
+
+    -- test that pid will be negative integer after exit
+    assert.equal(p:pid(), -pid)
+
+    -- test that return error after exit
+    res, err = p:wait()
+    assert.is_nil(res)
+    assert.equal(err.type, errno.ECHILD)
+end
+
+local function test_wait_nohang()
+    local p, err = fork()
+    if not p then
+        if err then
+            error(err)
+        end
+        -- test that child process exit 123 after 500ms
+        sleep(500)
+        os.exit(123)
+    end
+    local pid = p:pid()
+
+    -- test that return again=true
+    local res, werr, again = p:wait('nohang')
+    assert.is_nil(res)
+    assert.is_nil(werr)
+    assert.is_true(again)
+
+    -- test that return result
+    sleep(510)
+    res, werr, again = p:wait('nohang')
+    assert.equal(res, {
+        pid = pid,
+        exit = 123,
+    })
+    assert.is_nil(werr)
+    assert.is_nil(again)
+end
+
+local function test_wait_untraced()
+    local p, err = fork()
+    if not p then
+        if err then
+            error(err)
+        end
+        -- test that child process exit 123 after sig continued
+        assert(signal.kill(signal.SIGSTOP))
+        os.exit(123)
+    end
+    local pid = p:pid()
+
+    -- test that res.sigstop=SIGSTOP
+    local res, werr, again = p:wait('untraced')
+    assert.equal(res, {
+        pid = pid,
+        sigstop = signal.SIGSTOP,
+    })
+    assert.is_nil(werr)
+    assert.is_nil(again)
+end
+
+local function test_wait_continued()
+    local p, err = fork()
+    if not p then
+        if err then
+            error(err)
+        end
+        -- test that child process exit 123 after sig continued
+        assert(signal.kill(signal.SIGSTOP))
+        sleep(10)
+        os.exit(123)
+    end
+    local pid = p:pid()
+    sleep(10)
+
+    -- test that res.sigcont=true
+    local pp
+    pp, err = fork()
+    if not pp then
+        if err then
+            error(err)
+        end
+        -- test that send SIGCONT signal after 100ms
+        sleep(100)
+        assert(signal.kill(signal.SIGCONT, pid))
+        os.exit()
+    end
+    local res, werr, again = p:wait('continued')
+    assert.equal(res, {
+        pid = pid,
+        sigcont = true,
+    })
+    assert.is_nil(werr)
+    assert.is_nil(again)
+end
+
+local function test_wait_sigterm()
+    local p, err = fork()
+    if not p then
+        if err then
+            error(err)
+        end
+        -- test that child process exit with sigterm after 100ms
+        sleep(100)
+        assert(signal.kill(signal.SIGTERM))
+        os.exit(123)
+    end
+    local pid = p:pid()
+
+    -- test that return again=true
+    local res, werr, again = p:wait()
+    assert.equal(res, {
+        pid = pid,
+        sigterm = signal.SIGTERM,
+    })
+    assert.is_nil(werr)
+    assert.is_nil(again)
+end
+
+local function test_kill()
+    local p, err = fork()
+    if not p then
+        if err then
+            error(err)
+        end
+        -- test that child process exit with sigterm after 100ms
+        sleep(100)
+        os.exit(123)
+    end
+    local pid = p:pid()
+
+    -- test that return sigterm=SIGTERM
+    local res, werr, again = p:kill()
+    assert.equal(res, {
+        pid = pid,
+        sigterm = signal.SIGTERM,
+    })
+    assert.is_nil(werr)
+    assert.is_nil(again)
+
+    -- test that return ESRCH after exit
+    res, werr, again = p:kill()
+    assert.is_nil(res)
+    assert.equal(werr.type, errno.ESRCH)
+    assert.is_nil(again)
+
+end
+
+test_fork()
+test_wait()
+test_wait_nohang()
+test_wait_untraced()
+test_wait_continued()
+test_wait_sigterm()
+test_kill()
