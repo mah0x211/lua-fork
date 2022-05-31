@@ -22,9 +22,18 @@ create child process.
 
 **Returns**
 
-- `p:fork.process`: `fork.process` object, or `nil` if it fails or is on a child process.
+- `p:fork.process`: `fork.process` object.
 - `err:error`: `nil` on success, or error object on failure.
 - `again:boolean`: true if `errno` is `EAGAIN`.
+
+
+## ok = p:is_child()
+
+returns `true` if the process is a child-process.
+
+**Returns**
+
+- `ok:boolean`: `true` on child-process.
 
 
 ## pid = p:pid()
@@ -58,6 +67,7 @@ please refer to `man 2 waitpid` for more details.
     - `sigcont:boolean` = `true` if `WIFCONTINUED` is true
 - `err:error`: `nil` on success, or error object on failure.
 - `again:boolean`: `true` if `waitpid` returns `0`.
+
 
 ## res, err, again = child:kill( [signo [, ...]] )
 

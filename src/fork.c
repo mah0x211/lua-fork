@@ -120,16 +120,25 @@ static int waitpid_lua(lua_State *L, pid_t *p, int opts)
     return 1;
 }
 
-static int wait_lua(lua_State *L)
+static inline pid_t *checknochild(lua_State *L, const char *errmsg)
 {
     pid_t *p = luaL_checkudata(L, 1, FORK_PROC_MT);
+    if (*p == 0) {
+        luaL_error(L, errmsg);
+    }
+    return p;
+}
+
+static int wait_lua(lua_State *L)
+{
+    pid_t *p = checknochild(L, "cannot wait for own-process termination");
     int opts = checkoptions(L, 2);
     return waitpid_lua(L, p, opts);
 }
 
 static int kill_lua(lua_State *L)
 {
-    pid_t *p  = luaL_checkudata(L, 1, FORK_PROC_MT);
+    pid_t *p  = checknochild(L, "cannot kill own-process");
     int signo = (int)lauxh_optinteger(L, 2, SIGTERM);
     int opts  = checkoptions(L, 3);
     pid_t pid = *p;
@@ -157,8 +166,20 @@ static int kill_lua(lua_State *L)
 
 static int pid_lua(lua_State *L)
 {
+    pid_t *p  = luaL_checkudata(L, 1, FORK_PROC_MT);
+    pid_t pid = *p;
+
+    if (pid == 0) {
+        pid = getpid();
+    }
+    lua_pushinteger(L, pid);
+    return 1;
+}
+
+static int is_child_lua(lua_State *L)
+{
     pid_t *p = luaL_checkudata(L, 1, FORK_PROC_MT);
-    lua_pushinteger(L, *p);
+    lua_pushboolean(L, *p == 0);
     return 1;
 }
 
@@ -189,8 +210,7 @@ static int fork_lua(lua_State *L)
     pid_t *p  = lua_newuserdata(L, sizeof(pid_t));
     pid_t pid = fork();
 
-    switch (pid) {
-    case -1:
+    if (pid == -1) {
         // got error
         lua_pushnil(L);
         if (errno == EAGAIN) {
@@ -200,17 +220,11 @@ static int fork_lua(lua_State *L)
         }
         lua_errno_new(L, errno, "fork");
         return 2;
-
-    case 0:
-        // child process
-        lua_pushnil(L);
-        return 1;
-
-    default:
-        *p = pid;
-        lauxh_setmetatable(L, FORK_PROC_MT);
-        return 1;
     }
+
+    *p = pid;
+    lauxh_setmetatable(L, FORK_PROC_MT);
+    return 1;
 }
 
 LUALIB_API int luaopen_fork(lua_State *L)
@@ -221,10 +235,11 @@ LUALIB_API int luaopen_fork(lua_State *L)
         {NULL,         NULL        }
     };
     struct luaL_Reg method[] = {
-        {"pid",  pid_lua },
-        {"wait", wait_lua},
-        {"kill", kill_lua},
-        {NULL,   NULL    }
+        {"is_child", is_child_lua},
+        {"pid",      pid_lua     },
+        {"wait",     wait_lua    },
+        {"kill",     kill_lua    },
+        {NULL,       NULL        }
     };
 
     lua_errno_loadlib(L);
