@@ -6,11 +6,8 @@ local sleep = require('sleep')
 
 local function test_fork()
     -- test that fork child process
-    local p, err = fork()
-    if not p then
-        if err then
-            error(err)
-        end
+    local p = assert(fork())
+    if p:is_child() then
         os.exit()
     else
         assert.match(p, '^fork.process: ', false)
@@ -19,22 +16,20 @@ local function test_fork()
 end
 
 local function test_wait()
-    local p, err = fork()
-    if not p then
-        if err then
-            error(err)
-        end
+    local p = assert(fork())
+    if p:is_child() then
         -- test that child process exit 123
         os.exit(123)
     end
     local pid = p:pid()
 
     -- test that child process exit with code 123
-    local res = assert(p:wait())
+    local res, err = assert(p:wait())
     assert.equal(res, {
         pid = pid,
         exit = 123,
     })
+    assert.is_nil(err)
 
     -- test that pid will be negative integer after exit
     assert.equal(p:pid(), -pid)
@@ -46,11 +41,8 @@ local function test_wait()
 end
 
 local function test_wait_nohang()
-    local p, err = fork()
-    if not p then
-        if err then
-            error(err)
-        end
+    local p = assert(fork())
+    if p:is_child() then
         -- test that child process exit 123 after 500ms
         sleep(500)
         os.exit(123)
@@ -75,11 +67,8 @@ local function test_wait_nohang()
 end
 
 local function test_wait_untraced()
-    local p, err = fork()
-    if not p then
-        if err then
-            error(err)
-        end
+    local p = assert(fork())
+    if p:is_child() then
         -- test that child process exit 123 after sig continued
         assert(signal.kill(signal.SIGSTOP))
         os.exit(123)
@@ -97,11 +86,8 @@ local function test_wait_untraced()
 end
 
 local function test_wait_continued()
-    local p, err = fork()
-    if not p then
-        if err then
-            error(err)
-        end
+    local p = assert(fork())
+    if p:is_child() then
         -- test that child process exit 123 after sig continued
         assert(signal.kill(signal.SIGSTOP))
         sleep(10)
@@ -111,12 +97,8 @@ local function test_wait_continued()
     sleep(10)
 
     -- test that res.sigcont=true
-    local pp
-    pp, err = fork()
-    if not pp then
-        if err then
-            error(err)
-        end
+    local pp = assert(fork())
+    if pp:is_child() then
         -- test that send SIGCONT signal after 100ms
         sleep(100)
         assert(signal.kill(signal.SIGCONT, pid))
@@ -132,11 +114,8 @@ local function test_wait_continued()
 end
 
 local function test_wait_sigterm()
-    local p, err = fork()
-    if not p then
-        if err then
-            error(err)
-        end
+    local p = assert(fork())
+    if p:is_child() then
         -- test that child process exit with sigterm after 100ms
         sleep(100)
         assert(signal.kill(signal.SIGTERM))
@@ -155,11 +134,8 @@ local function test_wait_sigterm()
 end
 
 local function test_kill()
-    local p, err = fork()
-    if not p then
-        if err then
-            error(err)
-        end
+    local p = assert(fork())
+    if p:is_child() then
         -- test that child process exit with sigterm after 100ms
         sleep(100)
         os.exit(123)
