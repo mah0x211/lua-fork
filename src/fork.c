@@ -164,6 +164,13 @@ static int kill_lua(lua_State *L)
     return waitpid_lua(L, p, opts);
 }
 
+static int ppid_lua(lua_State *L)
+{
+    (void)luaL_checkudata(L, 1, FORK_PROC_MT);
+    lua_pushinteger(L, getppid());
+    return 1;
+}
+
 static int pid_lua(lua_State *L)
 {
     pid_t *p  = luaL_checkudata(L, 1, FORK_PROC_MT);
@@ -237,6 +244,7 @@ LUALIB_API int luaopen_fork(lua_State *L)
     struct luaL_Reg method[] = {
         {"is_child", is_child_lua},
         {"pid",      pid_lua     },
+        {"ppid",     ppid_lua    },
         {"wait",     wait_lua    },
         {"kill",     kill_lua    },
         {NULL,       NULL        }
