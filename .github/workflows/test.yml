@@ -60,7 +60,8 @@ jobs:
         sudo apt install lcov -y
         luarocks install assert
         luarocks install signal
-        luarocks install sleep
+        luarocks install time-sleep
+        luarocks install getpid
     -
       name: Run Test
       run: |
@@ -71,7 +72,7 @@ jobs:
         sh ./covgen.sh
     -
       name: Upload c coverage to Codecov
-      uses: codecov/codecov-action@v2
+      uses: codecov/codecov-action@v3
       with:
         files: ./coverage/lcov.info
         flags: unittests

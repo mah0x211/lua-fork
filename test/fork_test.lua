@@ -2,16 +2,22 @@ local fork = require('fork')
 local assert = require('assert')
 local errno = require('errno')
 local signal = require('signal')
-local sleep = require('sleep')
+local sleep = require('time.sleep')
+local getpid = require('getpid')
 
 local function test_fork()
     -- test that fork child process
+    local pid = assert(getpid())
+    local ppid = assert(getpid(true))
     local p = assert(fork())
     if p:is_child() then
+        assert.greater(p:pid(), pid)
+        assert.equal(p:ppid(), pid)
         os.exit()
     else
         assert.match(p, '^fork.process: ', false)
-        assert.greater(p:pid(), 1)
+        assert.greater(p:pid(), pid)
+        assert.equal(p:ppid(), ppid)
     end
 end
 
@@ -44,7 +50,7 @@ local function test_wait_nohang()
     local p = assert(fork())
     if p:is_child() then
         -- test that child process exit 123 after 500ms
-        sleep(500)
+        sleep(0.5)
         os.exit(123)
     end
     local pid = p:pid()
@@ -56,7 +62,7 @@ local function test_wait_nohang()
     assert.is_true(again)
 
     -- test that return result
-    sleep(510)
+    sleep(0.51)
     res, werr, again = p:wait('nohang')
     assert.equal(res, {
         pid = pid,
@@ -90,17 +96,17 @@ local function test_wait_continued()
     if p:is_child() then
         -- test that child process exit 123 after sig continued
         assert(signal.kill(signal.SIGSTOP))
-        sleep(10)
+        sleep(0.01)
         os.exit(123)
     end
     local pid = p:pid()
-    sleep(10)
+    sleep(0.01)
 
     -- test that res.sigcont=true
     local pp = assert(fork())
     if pp:is_child() then
         -- test that send SIGCONT signal after 100ms
-        sleep(100)
+        sleep(0.1)
         assert(signal.kill(signal.SIGCONT, pid))
         os.exit()
     end
@@ -117,7 +123,7 @@ local function test_wait_sigterm()
     local p = assert(fork())
     if p:is_child() then
         -- test that child process exit with sigterm after 100ms
-        sleep(100)
+        sleep(0.1)
         assert(signal.kill(signal.SIGTERM))
         os.exit(123)
     end
@@ -137,7 +143,7 @@ local function test_kill()
     local p = assert(fork())
     if p:is_child() then
         -- test that child process exit with sigterm after 100ms
-        sleep(100)
+        sleep(0.1)
         os.exit(123)
     end
     local pid = p:pid()

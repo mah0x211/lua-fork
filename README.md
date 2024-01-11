@@ -45,6 +45,15 @@ get process id.
 - `pid:integer`: process id.
 
 
+## pid = p:ppid()
+
+get parent process id.
+
+**Returns**
+
+- `pid:integer`: parent process id.
+
+
 ## res, err, again = p:wait( ... )
 
 wait for process termination.  
