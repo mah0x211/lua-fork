@@ -148,21 +148,27 @@ local function test_kill()
     end
     local pid = p:pid()
 
+    -- test that error if invalid signal
+    local ok, err = p:kill(-987654321)
+    assert.is_false(ok)
+    assert.match(err, 'EINVAL')
+
     -- test that return sigterm=SIGTERM
-    local res, werr, again = p:kill()
+    ok, err = p:kill()
+    assert.is_true(ok)
+    assert.is_nil(err)
+
+    -- test that return again=true
+    local res = assert(p:wait())
     assert.equal(res, {
         pid = pid,
         sigterm = signal.SIGTERM,
     })
-    assert.is_nil(werr)
-    assert.is_nil(again)
 
     -- test that return ESRCH after exit
-    res, werr, again = p:kill()
-    assert.is_nil(res)
-    assert.equal(werr.type, errno.ESRCH)
-    assert.is_nil(again)
-
+    ok, err = p:kill()
+    assert.is_false(ok)
+    assert.is_nil(err)
 end
 
 test_fork()

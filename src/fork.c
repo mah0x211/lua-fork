@@ -140,28 +140,28 @@ static int kill_lua(lua_State *L)
 {
     pid_t *p  = checknochild(L, "cannot kill own-process");
     int signo = (int)lauxh_optinteger(L, 2, SIGTERM);
-    int opts  = checkoptions(L, 3);
     pid_t pid = *p;
 
     lua_settop(L, 1);
 
     // pid already exit
     if (pid < 1) {
-        lua_pushnil(L);
         errno = ESRCH;
-        lua_errno_new(L, errno, "kill");
-        return 2;
+        lua_pushboolean(L, 0);
+        return 1;
     } else if (kill(pid, signo) == -1) {
+        lua_pushboolean(L, 0);
         // got error
         if (errno == ESRCH) {
             *p = -pid;
+            return 1;
         }
-        lua_pushnil(L);
         lua_errno_new(L, errno, "kill");
         return 2;
     }
 
-    return waitpid_lua(L, p, opts);
+    lua_pushboolean(L, 1);
+    return 1;
 }
 
 static int ppid_lua(lua_State *L)

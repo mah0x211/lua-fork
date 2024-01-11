@@ -23,7 +23,7 @@ create child process.
 **Returns**
 
 - `p:fork.process`: `fork.process` object.
-- `err:error`: `nil` on success, or error object on failure.
+- `err:any`: `nil` on success, or error object on failure.
 - `again:boolean`: true if `errno` is `EAGAIN`.
 
 
@@ -74,23 +74,20 @@ please refer to `man 2 waitpid` for more details.
     - `sigterm:integer` = value of `WTERMSIG` if `WIFSIGNALED` is true.
     - `sigstop:integer` = value of `WSTOPSIG` if `WIFSTOPPED` is true.
     - `sigcont:boolean` = `true` if `WIFCONTINUED` is true
-- `err:error`: `nil` on success, or error object on failure.
+- `err:any`: `nil` on success, or error object on failure.
 - `again:boolean`: `true` if `waitpid` returns `0`.
 
 
-## res, err, again = child:kill( [signo [, ...]] )
+## ok, err = child:kill( [signo] )
 
-send a signal to the process and wait for it to terminate.
+send a signal to the process.
 
 **Parameters**
 
 - `signo:integer`: signal number. default `SIGTERM`.
-- `...:string`: wait options;  
-    - `'nohang'`: return immediately if no child has exited.
-    - `'untraced'`: also return if a child has stopped.
-    - `'continued'`: also return if a stopped child has been resumed by delivery of `SIGCONT`.
 
 **Returns**
 
-same as `p:wait()`
+- `ok:boolean`: `true` on success.
+- `err:any`: `nil` and `ok` is `false` on process not found, or error object on failure.
 
