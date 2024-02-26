@@ -54,13 +54,13 @@ get parent process id.
 - `pid:integer`: parent process id.
 
 
-## res, err, again = p:wait( ... )
+## res, err, again = p:waitpid( [sec [, ...]] )
 
-wait for process termination.  
-please refer to `man 2 waitpid` for more details.
+wait for process termination by https://github.com/mah0x211/lua-waitpid module.  
 
 **Parameters**
 
+- `sec:integer`: timeout seconds. default `nil`.
 - `...:string`: wait options;  
     - `'nohang'`: return immediately if no child has exited.
     - `'untraced'`: also return if a child has stopped.
@@ -76,6 +76,12 @@ please refer to `man 2 waitpid` for more details.
     - `sigcont:boolean` = `true` if `WIFCONTINUED` is true
 - `err:any`: `nil` on success, or error object on failure.
 - `again:boolean`: `true` if `waitpid` returns `0`.
+
+
+## res, err, again = p:wait( ... )
+
+wait for process termination.  
+it is equivalent to `p:waitpid( nil, ... )`.
 
 
 ## ok, err = child:kill( [signo] )

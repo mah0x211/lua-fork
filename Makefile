@@ -1,6 +1,7 @@
-TARGET=$(PACKAGE).$(LIB_EXTENSION)
-SRCS=$(wildcard $(SRCDIR)/*.c)
+SRCS=$(wildcard src/*.c)
 OBJS=$(SRCS:.c=.o)
+CLIBS=$(SRCS:.c=.$(LIB_EXTENSION))
+LLIBS=$(wildcard lib/*.lua)
 INSTALL?=install
 
 ifdef FORK_COVERAGE
@@ -9,16 +10,18 @@ endif
 
 .PHONY: all install
 
-all: $(TARGET)
+all: $(CLIBS)
 
 %.o: %.c
 	$(CC) $(CFLAGS) $(WARNINGS) $(COVFLAGS) $(CPPFLAGS) -o $@ -c $<
 
-$(TARGET): $(OBJS)
+%.$(LIB_EXTENSION): %.o
 	$(CC) -o $@ $^ $(LDFLAGS) $(LIBS) $(PLATFORM_LDFLAGS) $(COVFLAGS)
 
 install:
-	$(INSTALL) -d $(INST_LIBDIR)
-	$(INSTALL) $(TARGET) $(INST_LIBDIR)
-	rm -f $(OBJS) $(TARGET)
-
+	$(INSTALL) fork.lua $(INST_LUADIR)
+	$(INSTALL) -d $(INST_LLIBDIR)
+	$(INSTALL) $(LLIBS) $(INST_LLIBDIR)
+	$(INSTALL) -d $(INST_CLIBDIR)
+	$(INSTALL) $(CLIBS) $(INST_CLIBDIR)
+	rm -f $(OBJS) $(CLIBS) ./src/*.gcda
