@@ -16,20 +16,47 @@ luarocks install fork
 
 the functions/methods are return the error object created by https://github.com/mah0x211/lua-errno module.
 
+
 ## p, err, again = fork()
 
 create child process.
 
 **Returns**
 
-- `p:fork.process`: `fork.process` object.
+- `p:fork.process|fork.child`: parent process will get `fork.child` object, and child process will get `fork.process` object.
 - `err:any`: `nil` on success, or error object on failure.
 - `again:boolean`: true if `errno` is `EAGAIN`.
 
+**Example**
+
+```lua
+local fork = require('fork')
+
+local p = assert(fork())
+if p:is_child() then
+    print('child process', p, p:pid(), 'parent:', p:ppid())
+    os.exit(123)
+end
+
+print('parent process', p, p:ppid(), 'child:', p:pid())
+local dump = require('dump')
+local res = assert(p:waitpid())
+print('child process terminated:', dump(res))
+--
+-- parent process	fork.child: 0x600003c98f80	49632	child:	49633
+-- child process	fork.process: 0x146705ab0	49633	parent:	49632
+-- child process terminated:	{
+--     exit = 123,
+--     pid = 49633
+-- }
+--
+```
+
+## Common Methods
 
 ## ok = p:is_child()
 
-returns `true` if the process is a child-process.
+returns `true` if the current-process is a child-process.
 
 **Returns**
 
@@ -54,7 +81,23 @@ get parent process id.
 - `pid:integer`: parent process id.
 
 
-## res, err, again = p:waitpid( [sec [, ...]] )
+## ok, err = p:kill( [signo] )
+
+send a signal to the process.
+
+**Parameters**
+
+- `signo:integer`: signal number. default `SIGTERM`.
+
+**Returns**
+
+- `ok:boolean`: `true` on success.
+- `err:any`: `nil` and `ok` is `false` on process not found, or error object on failure.
+
+
+## `fork.child` Methods
+
+## res, err, timeout = child:waitpid( [sec [, ...]] )
 
 wait for process termination by https://github.com/mah0x211/lua-waitpid module.  
 
@@ -62,7 +105,7 @@ wait for process termination by https://github.com/mah0x211/lua-waitpid module.
 
 - `sec:integer`: timeout seconds. default `nil`.
 - `...:string`: wait options;  
-    - `'nohang'`: return immediately if no child has exited.
+    - `'nohang'`: return immediately if no child has exited. if this option is specified, `sec` is ignored.
     - `'untraced'`: also return if a child has stopped.
     - `'continued'`: also return if a stopped child has been resumed by delivery of `SIGCONT`.
 
@@ -75,25 +118,12 @@ wait for process termination by https://github.com/mah0x211/lua-waitpid module.
     - `sigstop:integer` = value of `WSTOPSIG` if `WIFSTOPPED` is true.
     - `sigcont:boolean` = `true` if `WIFCONTINUED` is true
 - `err:any`: `nil` on success, or error object on failure.
-- `again:boolean`: `true` if `waitpid` returns `0`.
+- `timeout:boolean`: `true` if timed out.
 
 
-## res, err, again = p:wait( ... )
+## res, err, again = child:wait( ... )
 
 wait for process termination.  
-it is equivalent to `p:waitpid( nil, ... )`.
+this is equivalent to `p:waitpid( nil, ... )`.
 
-
-## ok, err = child:kill( [signo] )
-
-send a signal to the process.
-
-**Parameters**
-
-- `signo:integer`: signal number. default `SIGTERM`.
-
-**Returns**
-
-- `ok:boolean`: `true` on success.
-- `err:any`: `nil` and `ok` is `false` on process not found, or error object on failure.
 
