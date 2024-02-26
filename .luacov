@@ -1,0 +1,8 @@
+codefromstrings = false
+runreport = true
+deletestats = true
+modules = {
+    ["fork"] = "fork.lua",
+    ["fork.child"] = "lib/child.lua",
+    ["fork.process"] = "lib/process.lua",
+}

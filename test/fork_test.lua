@@ -1,3 +1,4 @@
+require('luacov')
 local fork = require('fork')
 local assert = require('assert')
 local signal = require('signal')

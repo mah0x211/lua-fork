@@ -62,6 +62,7 @@ jobs:
       name: Install Tools
       run: |
         sudo apt install lcov -y
+        luarocks install luacov
         luarocks install assert
         luarocks install signal
         luarocks install time-sleep
