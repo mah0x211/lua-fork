@@ -11,14 +11,15 @@ description = {
 }
 dependencies = {
     "lua >= 5.1",
-    "errno >= 0.3.0",
-    "lauxhlib >= 0.3.1",
+    "errno >= 0.5.0",
+    "error >= 0.13.0",
+    "getpid >= 0.1.0",
+    "signal >= 1.6.1",
+    "waitpid >= 0.3.1",
 }
 build = {
     type = "make",
     build_variables = {
-        PACKAGE = "fork",
-        SRCDIR = "src",
         CFLAGS = "$(CFLAGS)",
         WARNINGS = "-Wall -Wno-trigraphs -Wmissing-field-initializers -Wreturn-type -Wmissing-braces -Wparentheses -Wno-switch -Wunused-function -Wunused-label -Wunused-parameter -Wunused-variable -Wunused-value -Wuninitialized -Wunknown-pragmas -Wshadow -Wsign-compare",
         CPPFLAGS = "-I$(LUA_INCDIR)",
@@ -27,9 +28,9 @@ build = {
         FORK_COVERAGE = "$(FORK_COVERAGE)",
     },
     install_variables = {
-        PACKAGE = "fork",
-        SRCDIR = "src",
-        INST_LIBDIR = "$(LIBDIR)",
+        INST_LUADIR = "$(LUADIR)",
+        INST_LLIBDIR = "$(LUADIR)/fork/",
+        INST_CLIBDIR = "$(LIBDIR)/fork/",
         LIB_EXTENSION = "$(LIB_EXTENSION)",
     },
 }

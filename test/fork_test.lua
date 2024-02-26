@@ -1,6 +1,5 @@
 local fork = require('fork')
 local assert = require('assert')
-local errno = require('errno')
 local signal = require('signal')
 local sleep = require('time.sleep')
 local getpid = require('getpid')
@@ -8,16 +7,16 @@ local getpid = require('getpid')
 local function test_fork()
     -- test that fork child process
     local pid = assert(getpid())
-    local ppid = assert(getpid(true))
     local p = assert(fork())
     if p:is_child() then
-        assert.greater(p:pid(), pid)
+        assert.match(p, '^fork.process: ', false)
+        assert.equal(p:pid(), getpid())
         assert.equal(p:ppid(), pid)
         os.exit()
     else
-        assert.match(p, '^fork.process: ', false)
+        assert.match(p, '^fork.child: ', false)
         assert.greater(p:pid(), pid)
-        assert.equal(p:ppid(), ppid)
+        assert.equal(p:ppid(), pid)
     end
 end
 
@@ -43,33 +42,41 @@ local function test_wait()
     -- test that return error after exit
     res, err = p:wait()
     assert.is_nil(res)
-    assert.equal(err.type, errno.ECHILD)
+    assert.is_nil(err)
 end
 
-local function test_wait_nohang()
+local function test_waitpid()
     local p = assert(fork())
     if p:is_child() then
-        -- test that child process exit 123 after 500ms
+        -- test that child process exit 123
         sleep(0.5)
         os.exit(123)
     end
     local pid = p:pid()
 
-    -- test that return again=true
-    local res, werr, again = p:wait('nohang')
+    -- test that return timeout=true
+    local res, err, timeout = p:waitpid(0.01)
     assert.is_nil(res)
-    assert.is_nil(werr)
-    assert.is_true(again)
+    assert.is_nil(err)
+    assert.is_true(timeout)
 
-    -- test that return result
-    sleep(0.51)
-    res, werr, again = p:wait('nohang')
+    -- test that child process exit with code 123
+    res, err, timeout = assert(p:waitpid())
     assert.equal(res, {
         pid = pid,
         exit = 123,
     })
-    assert.is_nil(werr)
-    assert.is_nil(again)
+    assert.is_nil(err)
+    assert.is_nil(timeout)
+
+    -- test that pid will be negative integer after exit
+    assert.equal(p:pid(), -pid)
+
+    -- test that return all nil after exit
+    res, err, timeout = p:waitpid()
+    assert.is_nil(res)
+    assert.is_nil(err)
+    assert.is_nil(timeout)
 end
 
 local function test_wait_untraced()
@@ -82,7 +89,7 @@ local function test_wait_untraced()
     local pid = p:pid()
 
     -- test that res.sigstop=SIGSTOP
-    local res, werr, again = p:wait('untraced')
+    local res, werr, again = p:waitpid(nil, 'untraced')
     assert.equal(res, {
         pid = pid,
         sigstop = signal.SIGSTOP,
@@ -110,7 +117,7 @@ local function test_wait_continued()
         assert(signal.kill(signal.SIGCONT, pid))
         os.exit()
     end
-    local res, werr, again = p:wait('continued')
+    local res, werr, again = p:waitpid(nil, 'continued')
     assert.equal(res, {
         pid = pid,
         sigcont = true,
@@ -130,9 +137,10 @@ local function test_wait_sigterm()
     local pid = p:pid()
 
     -- test that return again=true
-    local res, werr, again = p:wait()
+    local res, werr, again = p:waitpid()
     assert.equal(res, {
         pid = pid,
+        exit = 128 + signal.SIGTERM,
         sigterm = signal.SIGTERM,
     })
     assert.is_nil(werr)
@@ -159,9 +167,10 @@ local function test_kill()
     assert.is_nil(err)
 
     -- test that return again=true
-    local res = assert(p:wait())
+    local res = assert(p:waitpid())
     assert.equal(res, {
         pid = pid,
+        exit = 128 + signal.SIGTERM,
         sigterm = signal.SIGTERM,
     })
 
@@ -173,7 +182,7 @@ end
 
 test_fork()
 test_wait()
-test_wait_nohang()
+test_waitpid()
 test_wait_untraced()
 test_wait_continued()
 test_wait_sigterm()
