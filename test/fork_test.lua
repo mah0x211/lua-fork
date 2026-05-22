@@ -1,11 +1,15 @@
 require('luacov')
-local fork = require('fork')
+local testcase = require('testcase')
+local exit = require('testcase.exit').exit
 local assert = require('assert')
+local fork = require('fork')
 local signal = require('signal')
 local sleep = require('time.sleep')
 local getpid = require('getpid')
+local waitpid_fn = require('waitpid')
+local new_process = require('fork.process')
 
-local function test_fork()
+function testcase.fork()
     -- test that fork child process
     local pid = assert(getpid())
     local p = assert(fork())
@@ -13,7 +17,7 @@ local function test_fork()
         assert.match(p, '^fork.process: ', false)
         assert.equal(p:pid(), getpid())
         assert.equal(p:ppid(), pid)
-        os.exit()
+        exit()
     else
         assert.match(p, '^fork.child: ', false)
         assert.greater(p:pid(), pid)
@@ -21,11 +25,48 @@ local function test_fork()
     end
 end
 
-local function test_wait()
+function testcase.fork_syscall_error()
+    -- test that fork returns nil, err when fork_syscall fails
+    local orig_syscall = package.loaded['fork.syscall']
+    local orig_fork = package.loaded['fork']
+    package.loaded['fork.syscall'] = function()
+        return nil, 'mock_error'
+    end
+    package.loaded['fork'] = nil
+
+    local mock_fork = require('fork')
+    local p, err = mock_fork()
+    assert.is_nil(p)
+    assert.equal(err, 'mock_error')
+
+    package.loaded['fork.syscall'] = orig_syscall
+    package.loaded['fork'] = orig_fork
+end
+
+function testcase.fork_syscall_again()
+    -- test that fork returns nil, nil, true when fork_syscall returns again
+    local orig_syscall = package.loaded['fork.syscall']
+    local orig_fork = package.loaded['fork']
+    package.loaded['fork.syscall'] = function()
+        return nil, nil, true
+    end
+    package.loaded['fork'] = nil
+
+    local mock_fork = require('fork')
+    local p, err, again = mock_fork()
+    assert.is_nil(p)
+    assert.is_nil(err)
+    assert.is_true(again)
+
+    package.loaded['fork.syscall'] = orig_syscall
+    package.loaded['fork'] = orig_fork
+end
+
+function testcase.wait()
     local p = assert(fork())
     if p:is_child() then
         -- test that child process exit 123
-        os.exit(123)
+        exit(123)
     end
     local pid = p:pid()
 
@@ -46,12 +87,12 @@ local function test_wait()
     assert.is_nil(err)
 end
 
-local function test_waitpid()
+function testcase.waitpid()
     local p = assert(fork())
     if p:is_child() then
         -- test that child process exit 123
         sleep(0.5)
-        os.exit(123)
+        exit(123)
     end
     local pid = p:pid()
 
@@ -80,12 +121,12 @@ local function test_waitpid()
     assert.is_nil(timeout)
 end
 
-local function test_wait_untraced()
+function testcase.wait_untraced()
     local p = assert(fork())
     if p:is_child() then
         -- test that child process exit 123 after sig continued
         assert(signal.kill(signal.SIGSTOP))
-        os.exit(123)
+        exit(123)
     end
     local pid = p:pid()
 
@@ -99,13 +140,13 @@ local function test_wait_untraced()
     assert.is_nil(again)
 end
 
-local function test_wait_continued()
+function testcase.wait_continued()
     local p = assert(fork())
     if p:is_child() then
         -- test that child process exit 123 after sig continued
         assert(signal.kill(signal.SIGSTOP))
         sleep(0.01)
-        os.exit(123)
+        exit(123)
     end
     local pid = p:pid()
     sleep(0.01)
@@ -116,7 +157,7 @@ local function test_wait_continued()
         -- test that send SIGCONT signal after 100ms
         sleep(0.1)
         assert(signal.kill(signal.SIGCONT, pid))
-        os.exit()
+        exit()
     end
     local res, werr, again = p:waitpid(nil, 'continued')
     assert.equal(res, {
@@ -127,13 +168,13 @@ local function test_wait_continued()
     assert.is_nil(again)
 end
 
-local function test_wait_sigterm()
+function testcase.wait_sigterm()
     local p = assert(fork())
     if p:is_child() then
         -- test that child process exit with sigterm after 100ms
         sleep(0.1)
         assert(signal.kill(signal.SIGTERM))
-        os.exit(123)
+        exit(123)
     end
     local pid = p:pid()
 
@@ -148,12 +189,12 @@ local function test_wait_sigterm()
     assert.is_nil(again)
 end
 
-local function test_kill()
+function testcase.kill()
     local p = assert(fork())
     if p:is_child() then
         -- test that child process exit with sigterm after 100ms
         sleep(0.1)
-        os.exit(123)
+        exit(123)
     end
     local pid = p:pid()
 
@@ -181,10 +222,42 @@ local function test_kill()
     assert.is_nil(err)
 end
 
-test_fork()
-test_wait()
-test_waitpid()
-test_wait_untraced()
-test_wait_continued()
-test_wait_sigterm()
-test_kill()
+function testcase.process_methods()
+    local p = new_process()
+    assert.match(p, '^fork.process: ', false)
+    assert.is_true(p:is_child())
+    assert.equal(p:pid(), getpid())
+    assert.is_int(p:ppid())
+
+    -- test that error if invalid signal
+    local ok, err = p:kill(-987654321)
+    assert.is_false(ok)
+    assert.match(err, 'EINVAL')
+
+    -- test that raise signal (use SIGUSR1 with SIG_IGN to avoid termination)
+    assert(signal.ignore(signal.SIGUSR1))
+    ok, err = p:kill('SIGUSR1')
+    signal.default(signal.SIGUSR1)
+    assert.is_true(ok)
+    assert.is_nil(err)
+end
+
+function testcase.child_kill_esrch()
+    local p = assert(fork())
+    if p:is_child() then
+        exit()
+    end
+    local pid = p:pid()
+
+    -- reap the child directly so that p.cpid is still positive
+    local res = assert(waitpid_fn(pid))
+    assert.equal(res.exit, 0)
+
+    -- test that kill returns false/nil when the process is already reaped (ESRCH)
+    local ok, err = p:kill()
+    assert.is_false(ok)
+    assert.is_nil(err)
+
+    -- test that cpid was negated
+    assert.equal(p:pid(), -pid)
+end
