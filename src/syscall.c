@@ -20,16 +20,14 @@
  *  DEALINGS IN THE SOFTWARE.
  */
 
-#include <errno.h>
-#include <signal.h>
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <unistd.h>
-// lua
-#include <lauxlib.h>
-#include <lua.h>
-// external
+// depend
 #include <lua_errno.h>
+// lua
+#include <lua.h>
+// system
+#include <errno.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 static int fork_lua(lua_State *L)
 {
